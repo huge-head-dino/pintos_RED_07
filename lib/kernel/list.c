@@ -487,3 +487,17 @@ list_min (struct list *list, list_less_func *less, void *aux) {
 	}
 	return min;
 }
+
+
+/* Compares the value of two list elements A and B, given
+   auxiliary data AUX.  Returns true if A is less than B, or
+   false if A is greater than or equal to B. */
+/**
+ * 2️⃣ list_elem a, b 를 가지고 대소관계를 비교하여 오름차순이 되도록 1 (true), 0 (false)을 리턴하는 함수
+*/
+bool _list_less_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
+	def_thread *thread_a = list_entry(a, def_thread, elem);
+	def_thread *thread_b = list_entry(b, def_thread, elem);
+	
+	return thread_a->wakeup_tick > thread_b->wakeup_tick;
+}

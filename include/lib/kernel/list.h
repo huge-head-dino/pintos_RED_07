@@ -82,6 +82,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "thread.h" // #️⃣ list_less_func을 위한 thread.h 참조
 
 /* List element. */
 struct list_elem {
@@ -100,6 +101,9 @@ struct list {
    name of the outer structure STRUCT and the member name MEMBER
    of the list element.  See the big comment at the top of the
    file for an example. */
+/**
+ * LIST_ELEM 을 통해 STRUCT 구조체
+*/
 #define list_entry(LIST_ELEM, STRUCT, MEMBER)           \
 	((STRUCT *) ((uint8_t *) &(LIST_ELEM)->next     \
 		- offsetof (STRUCT, MEMBER.next)))

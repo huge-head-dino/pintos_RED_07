@@ -27,6 +27,7 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+static struct list sleep_list; // 1️⃣sleep_list 선언
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -105,9 +106,11 @@ thread_init (void) {
 	};
 	lgdt (&gdt_ds);
 
-	/* Init the globla thread context */
+	/* Init the global thread context */
+	/* new timer_sleep()로 구현*/
 	lock_init (&tid_lock);
-	list_init (&ready_list);
+	list_init (&ready_list); // ready_list 생성
+	list_init (&sleep_list); // 1️⃣#️sleep_list 생성
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -120,7 +123,7 @@ thread_init (void) {
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
-thread_start (void) {
+thread_start (void) { // idle_thread 생성해주고, interrupt를 발생시킨다. idle_thread는 cpu가 동작이 멈추지 않게 하기 위해 쓰래기 값을 넣어줌으로서 스레드가 있다 여기게끔 하는 용도
 	/* Create the idle thread. */
 	struct semaphore idle_started;
 	sema_init (&idle_started, 0);
@@ -263,7 +266,7 @@ thread_current (void) {
 	   have overflowed its stack.  Each thread has less than 4 kB
 	   of stack, so a few big automatic arrays or moderate
 	   recursion can cause stack overflow. */
-	ASSERT (is_thread (t));
+	ASSERT (is_thread (t)); // #️⃣실행중인 스레드의 magic멤버가 THREAD_MAGIC으로 설정되어 있는지 검사한다.
 	ASSERT (t->status == THREAD_RUNNING);
 
 	return t;
@@ -587,4 +590,23 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+/**
+ * 2️⃣ thread_sleep(int64_t ticks)
+ * change the state of the caller thread to 'blocked' and put it to the sleep queue
+ * 해당 스레드의 상태를 'blocked'로 변경하고, sleep queue에 삽입한다.
+ * 주의할 점이 삽입시 리스트에 바로 넣는게 아닌 wakeup tick값이 오름차순이 되도록 정렬삽입 해야한다.
+*/
+void thread_sleep(int64_t ticks) {
+	def_thread *curr = thread_current();
+	enum intr_level old_level; // thread 작업중에 interrupt가 발생하면 안되기 때문에 block 시켜뒀다가 완료되면 block을 해제한다.
+	old_level = intr_disable();
+	list_less_func *less = (&curr->elem, &);
+	if (curr != idle_thread) {
+		thread_block();
+		curr->wakeup_tick = ticks; // update the global tick if necessary, 나중에 스레드를 꺠울 시간 (start + ticks) 저장. 여기서 말하는 global tick은 전역변수 global tick이 아닌 스레드 tick의 미니멈 값
+		list_insert_ordered (&sleep_list, &curr->elem, less, NULL); // 현재 스레드의 sleep 큐에 넣기 수정해야함. 우선순위를 맞춰서 min 값으로 오름차순이 되어야 한다.
+		schedule(); // 다음 스레드를 running 시켜준다.
+	}
+	intr_set_level(old_level);
 }
