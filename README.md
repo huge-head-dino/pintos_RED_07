@@ -62,6 +62,9 @@ $ brew install gitmoji
 ✏️ (code : `:pencil2:`) : 오타 및 주석 추가 및 수정 <br>
 🔥 (code : `:fire:`) : 파일 및 코드 삭제
 
+> 여기서 입력한 `origin`은 origin/main 브런치로 깃허브 상에서 default 브런치를 가리킨다.
+> git push, pull 등 명령어 수행 시 브런치 명 위치 확실히 생각하고 쓸 것.
+
 ## commit, push
 
 > 로컬 브런치 명은 깃허브 아이디로 하고, origin에 푸시한 후 PR한 후 merge를 시도한다.
@@ -77,12 +80,13 @@ gitmoji -c
 git push origin 내 브런치 명 ex) git push origin uujeen
 ```
 
+## merge
+```
+push 후 깃헙 페이지에서 PR 후 팀원들과 상의 후 merge하기
+```
+
 ## pull
 
 ```
 git pull origin 내 브런치 명 ex) git pull origin uujeen
-
-여기서 입력한 `origin`은 origin/main 브런치로 깃허브 상에서 default 브런치를 가리킨다.
-git push, pull 등 명령어 수행 시 브런치 명 위치 확실히 생각하고 쓸 것.
-
 ```
