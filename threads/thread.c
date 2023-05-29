@@ -208,7 +208,8 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
-
+	def_thread *curr = thread_current();
+	thread_set_priority(curr->priority);
 	return tid;
 }
 
@@ -242,7 +243,7 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -305,7 +306,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -313,7 +314,18 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+	//thread_current ()->priority = new_priority;
+	def_thread *curr = thread_current();
+	curr->priority = new_priority;
+	enum intr_level old_level;
+	old_level = intr_disable();
+
+	struct list_elem *ready_head = list_begin(&ready_list);
+	def_thread *cmp_t = list_entry(ready_head, def_thread, elem);
+	if (curr->priority < cmp_t->priority) {
+		thread_yield();
+	}
+	intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -600,6 +612,13 @@ bool list_ascending_func (const struct list_elem *a, const struct list_elem *b, 
 	return thread_a->wakeup_tick < thread_b->wakeup_tick;
 }
 
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux) {
+	def_thread *thread_a = list_entry(a, def_thread, elem);
+	def_thread *thread_b = list_entry(b, def_thread, elem);
+	
+	return thread_a->priority > thread_b->priority;
+}
+
 /**
  * 2️⃣ thread_sleep(int64_t ticks)
  * change the state of the caller thread to 'blocked' and put it to the sleep queue
@@ -623,11 +642,13 @@ void thread_wakeup(int64_t ticks) {
 	while(this != list_end(&sleep_list)) {
 		def_thread *sleep_thread = list_entry(this, def_thread, elem);
 		if(ticks >= sleep_thread->wakeup_tick) {
-			thread_unblock(sleep_thread);
+			struct list_elem *next = list_next(this);
 			this = list_remove(this);
+			thread_unblock(sleep_thread);
+			this = next;
 		}
 		else {
-			break;
+			this = list_next(this);
 		}
 	}
 }
