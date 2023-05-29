@@ -145,5 +145,6 @@ int thread_get_load_avg (void);
 void do_iret (struct intr_frame *tf);
 
 void thread_sleep(int64_t ticks);
-
+void thread_wakeup(int64_t ticks);
+bool list_ascending_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 #endif /* threads/thread.h */

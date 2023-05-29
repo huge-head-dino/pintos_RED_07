@@ -82,7 +82,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "thread.h" // #️⃣ list_less_func을 위한 thread.h 참조
 
 /* List element. */
 struct list_elem {

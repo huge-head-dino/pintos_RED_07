@@ -14,7 +14,6 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
-
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -592,6 +591,16 @@ allocate_tid (void) {
 	return tid;
 }
 /**
+ * 2️⃣ list_elem a, b 를 가지고 대소관계를 비교하여 오름차순이 되도록 1 (true), 0 (false)을 리턴하는 함수
+*/
+bool list_ascending_func (const struct list_elem *a, const struct list_elem *b, void *aux) {
+	def_thread *thread_a = list_entry(a, def_thread, elem);
+	def_thread *thread_b = list_entry(b, def_thread, elem);
+	
+	return thread_a->wakeup_tick < thread_b->wakeup_tick;
+}
+
+/**
  * 2️⃣ thread_sleep(int64_t ticks)
  * change the state of the caller thread to 'blocked' and put it to the sleep queue
  * 해당 스레드의 상태를 'blocked'로 변경하고, sleep queue에 삽입한다.
@@ -601,12 +610,24 @@ void thread_sleep(int64_t ticks) {
 	def_thread *curr = thread_current();
 	enum intr_level old_level; // thread 작업중에 interrupt가 발생하면 안되기 때문에 block 시켜뒀다가 완료되면 block을 해제한다.
 	old_level = intr_disable();
-	list_less_func *less = (&curr->elem, &);
 	if (curr != idle_thread) {
-		thread_block();
 		curr->wakeup_tick = ticks; // update the global tick if necessary, 나중에 스레드를 꺠울 시간 (start + ticks) 저장. 여기서 말하는 global tick은 전역변수 global tick이 아닌 스레드 tick의 미니멈 값
-		list_insert_ordered (&sleep_list, &curr->elem, less, NULL); // 현재 스레드의 sleep 큐에 넣기 수정해야함. 우선순위를 맞춰서 min 값으로 오름차순이 되어야 한다.
-		schedule(); // 다음 스레드를 running 시켜준다.
+		list_insert_ordered (&sleep_list, &curr->elem, list_ascending_func, NULL); // 현재 스레드의 sleep 큐에 넣기 수정해야함. 우선순위를 맞춰서 min 값으로 오름차순이 되어야 한다.		
+		thread_block();
 	}
 	intr_set_level(old_level);
+}
+
+void thread_wakeup(int64_t ticks) {
+	struct list_elem *this = list_begin(&sleep_list);
+	while(this != list_end(&sleep_list)) {
+		def_thread *sleep_thread = list_entry(this, def_thread, elem);
+		if(ticks >= sleep_thread->wakeup_tick) {
+			thread_unblock(sleep_thread);
+			this = list_remove(this);
+		}
+		else {
+			break;
+		}
+	}
 }
