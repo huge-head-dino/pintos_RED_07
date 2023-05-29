@@ -643,7 +643,7 @@ void thread_wakeup(int64_t ticks) {
 		def_thread *sleep_thread = list_entry(this, def_thread, elem);
 		if(ticks >= sleep_thread->wakeup_tick) {
 			struct list_elem *next = list_next(this);
-			this = list_remove(this);
+			list_remove(this);
 			thread_unblock(sleep_thread);
 			this = next;
 		}

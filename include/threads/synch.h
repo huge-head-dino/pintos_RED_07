@@ -30,7 +30,7 @@ bool lock_held_by_current_thread (const struct lock *);
 
 /* Condition variable. */
 struct condition {
-	struct list waiters;        /* List of waiting threads. */
+	struct list waiters;        /* List of waiting semaphore. */ // List of waiting threads -> semaphore 오타수정
 };
 
 void cond_init (struct condition *);
