@@ -243,7 +243,7 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL); // elem을 ready_list에 올리는데 우선순위 맞게 올리도록함.
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -317,13 +317,13 @@ thread_set_priority (int new_priority) {
 	//thread_current ()->priority = new_priority;
 	def_thread *curr = thread_current();
 	curr->priority = new_priority;
-	enum intr_level old_level;
+	enum intr_level old_level; 
 	old_level = intr_disable();
 
-	struct list_elem *ready_head = list_begin(&ready_list);
+	struct list_elem *ready_head = list_begin(&ready_list); // ready_list의 head의 주소값을 뽑아냄 -> 이미 ready_list는 우선순위가 부여되어서 정렬되어 있는 상태
 	def_thread *cmp_t = list_entry(ready_head, def_thread, elem);
 	if (curr->priority < cmp_t->priority) {
-		thread_yield();
+		thread_yield(); //schedule()함수가 아닌 thread_yield()함수 실행.
 	}
 	intr_set_level(old_level);
 }
@@ -612,6 +612,7 @@ bool list_ascending_func (const struct list_elem *a, const struct list_elem *b, 
 	return thread_a->wakeup_tick < thread_b->wakeup_tick;
 }
 
+// list_elem a와 b를 비교해서 a의 우선순위가 b의 우선순위보다 높으면 True 반환.
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux) {
 	def_thread *thread_a = list_entry(a, def_thread, elem);
 	def_thread *thread_b = list_entry(b, def_thread, elem);
@@ -640,10 +641,10 @@ void thread_sleep(int64_t ticks) {
 void thread_wakeup(int64_t ticks) {
 	struct list_elem *this = list_begin(&sleep_list);
 	while(this != list_end(&sleep_list)) {
-		def_thread *sleep_thread = list_entry(this, def_thread, elem);
-		if(ticks >= sleep_thread->wakeup_tick) {
-			this = list_remove(this);
-			thread_unblock(sleep_thread);
+		def_thread *sleep_thread = list_entry(this, def_thread, elem); // this가 가리키고 있는 스레드(즉, 깨워야하는 스레드)
+		if(ticks >= sleep_thread->wakeup_tick) { // 글로벌 tick이 꺠워야하는 스레드의 tick보다 같거나 크면 스레드를 꺠워야함.
+			this = list_remove(this); // sleep_list의 head를 가리키고 있는 포인터를 다음 노드를 가리키도록 함.
+			thread_unblock(sleep_thread); // 깨워야 하는 스레드를 블락해제한 후, ready_list에 올림.
 		}
 		else {
 			break;

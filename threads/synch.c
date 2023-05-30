@@ -65,8 +65,9 @@ sema_down (struct semaphore *sema) {
 	ASSERT (!intr_context ());
 
 	old_level = intr_disable ();
-	while (sema->value == 0) {
-		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL);
+	while (sema->value == 0) { // semaphore의 값이 0일 때(사용할 수 있는 공유자원이 없을 때)
+		// sema를 사용할 대기자들(waiters)를 우선순위를 비교해서 정렬.
+		list_insert_ordered(&sema->waiters, &thread_current()->elem, cmp_priority, NULL); 
 		thread_block ();
 	}
 	sema->value--;
@@ -109,8 +110,9 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters)) {
-		list_sort(&sema->waiters, cmp_priority, NULL);
+	if (!list_empty (&sema->waiters)) { // sema를 사용할 대기자들이 있다면
+		list_sort(&sema->waiters, cmp_priority, NULL); // 우선순위에 따라 정렬되어 있지 않은 대기자들을 병합 정렬
+		// sema->waiters의 가장 앞에 있는 요소를 제거하고 그 요소를 반환 후, 이 반환 값을 struct thread 구조체 포인터로 반환.
 		def_thread *wait_t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
 		thread_unblock(wait_t);
 	}
