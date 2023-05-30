@@ -111,10 +111,9 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	if (!list_empty (&sema->waiters)) { // sema를 사용할 대기자들이 있다면
-		list_sort(&sema->waiters, cmp_priority, NULL); // 우선순위에 따라 정렬되어 있지 않은 대기자들을 병합 정렬
 		// sema->waiters의 가장 앞에 있는 요소를 제거하고 그 요소를 반환 후, 이 반환 값을 struct thread 구조체 포인터로 반환.
 		def_thread *wait_t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
-		thread_unblock(wait_t);
+		thread_unblock(wait_t); // 해당 스레드를 블록해제한 후, sema를 이용할 수 있도록하게 함.
 	}
 	sema->value++;
 	thread_yield();

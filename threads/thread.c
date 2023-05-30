@@ -643,7 +643,7 @@ void thread_wakeup(int64_t ticks) {
 	while(this != list_end(&sleep_list)) {
 		def_thread *sleep_thread = list_entry(this, def_thread, elem); // this가 가리키고 있는 스레드(즉, 깨워야하는 스레드)
 		if(ticks >= sleep_thread->wakeup_tick) { // 글로벌 tick이 꺠워야하는 스레드의 tick보다 같거나 크면 스레드를 꺠워야함.
-			this = list_remove(this); // sleep_list의 head를 가리키고 있는 포인터를 다음 노드를 가리키도록 함.
+			this = list_remove(this); // sleep_list의 head 요소를 제거한 후 다음 노드를 가리키도록 함.
 			thread_unblock(sleep_thread); // 깨워야 하는 스레드를 블락해제한 후, ready_list에 올림.
 		}
 		else {
