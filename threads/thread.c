@@ -208,12 +208,9 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
-	def_thread *curr = thread_current();
-	if (thread_get_priority() < t -> priority)
-	{
+	if (thread_get_priority() < t->priority) {
 		thread_yield();
 	}
-	// thread_set_priority(curr->priority); *️⃣*️⃣*️⃣
 	return tid;
 }
 
@@ -315,43 +312,13 @@ thread_yield (void) {
 	intr_set_level (old_level);
 }
 
-
-
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	// thread_current ()->priority = new_priority;
-	def_thread *curr = thread_current();
-	curr->init_priority = new_priority;
+	thread_current()->init_priority = new_priority;
 	refresh_priority();
-
-	if (list_empty(&ready_list)){
- 		return;
- 	}
-
 	test_max_priority();
-	// struct list_elem *ready_head = list_begin(&ready_list); // ready_list의 head의 주소값을 뽑아냄 -> 이미 ready_list는 우선순위가 부여되어서 정렬되어 있는 상태
-	// def_thread *cmp_t = list_entry(ready_head, def_thread, elem);
-	// if (curr->priority < cmp_t->priority) {
-	// 	thread_yield(); //schedule()함수가 아닌 thread_yield()함수 실행.
-	// }
-	
 }
-
-void test_max_priority(void)
-{
-	if (list_empty(&ready_list)){
-		return;
-	}
-	int run_priority = thread_current()->priority;
-	struct list_elem * e = list_begin(&ready_list);
-	struct thread * t = list_entry(e, struct thread, elem);
-	if(t->priority > run_priority)
-	{
-		thread_yield();
-	}
-}
-
 
 /* Returns the current thread's priority. */
 int
@@ -451,7 +418,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	// --- add for donation 추가부분 ----//
 	t->init_priority = priority;
-	t->wait_lock =NULL;
+	t->wait_lock = NULL;
 	list_init(&t->donations);
 }
 
@@ -650,6 +617,13 @@ bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *a
 	return thread_a->priority > thread_b->priority;
 }
 
+bool cmp_donate_priority (const struct list_elem *a, const struct list_elem *b, void *aux) {
+	def_thread *thread_a = list_entry(a, def_thread, donations_elem);
+	def_thread *thread_b = list_entry(b, def_thread, donations_elem);
+	
+	return thread_a->priority > thread_b->priority;
+}
+
 /**
  * 2️⃣ thread_sleep(int64_t ticks)
  * change the state of the caller thread to 'blocked' and put it to the sleep queue
@@ -679,5 +653,15 @@ void thread_wakeup(int64_t ticks) {
 		else {
 			break;
 		}
+	}
+}
+/**
+ * 현재 실행중인 스레드의 우선순위와
+*/
+void test_max_priority(void) {
+	struct list_elem *e = list_begin(&ready_list);
+	def_thread *cmp_t = list_entry(e, def_thread, elem);
+	if(thread_get_priority() < cmp_t->priority) {
+		thread_yield();
 	}
 }

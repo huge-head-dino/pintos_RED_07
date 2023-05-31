@@ -161,4 +161,5 @@ void thread_sleep(int64_t ticks);
 void thread_wakeup(int64_t ticks);
 bool list_ascending_func (const struct list_elem *a, const struct list_elem *b, void *aux);
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
+bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
 #endif /* threads/thread.h */
