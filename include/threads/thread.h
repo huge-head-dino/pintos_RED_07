@@ -93,6 +93,13 @@ typedef struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 
+// --------------------- donation을 위해 추가로 들어가는 멤버들 ---------------------------- //
+	int init_priority;								// #️⃣쓰레드의 우선순위가 기부 받을 때마다 바뀌기 때문에 우선순위를 반납하려면 원래 본인의 우선순위는 간직하고 있어야함
+	struct lock * wait_lock;						// #️⃣lock을 받으려고 기다리는 waiting_list이다. 
+	struct list donations;							// #️⃣자신에게 우선순위를 나눠준 thread의 list이다. 나눠준 녀석의 int priority를 찾아갈 수 있도록 알아야한다.
+	struct list_elem donations_elem; 				// #️⃣윗줄 donations라는 list에 걸려있기 위한 elem이다.
+// ----------------------------------------------------------------------------------------//
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
