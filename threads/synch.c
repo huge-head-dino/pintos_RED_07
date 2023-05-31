@@ -110,7 +110,7 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable();
 	if(!list_empty(&sema->waiters)) { // sema를 사용할 대기자들이 있다면
-		// sema->waiters의 가장 앞에 있는 요소를 제거하고 그 요소를 반환 후, 이 반환 값을 struct thread 구조체 포인터로 반환.
+		// sema->waiters의 가장 앞에 있는 요소를 제거하고 그 요소를 반환 후, 이 반환 값을 def_thread 구조체 포인터로 반환.
 		list_sort(&sema->waiters, cmp_priority, NULL); //*️⃣*️⃣*️⃣*️⃣*️⃣*️⃣
 		def_thread *wait_t = list_entry(list_pop_front(&sema->waiters), def_thread, elem);
 		thread_unblock(wait_t); // 해당 스레드를 블록해제한 후, sema를 이용할 수 있도록하게 함.
@@ -333,8 +333,8 @@ bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void
   const struct list_elem *lsa = list_begin(&sa->semaphore.waiters);
   const struct list_elem *lsb = list_begin(&sb->semaphore.waiters);
 
-  const struct thread *tlsa = list_entry(lsa, struct thread, elem);
-  const struct thread *tlsb = list_entry(lsb, struct thread, elem);
+  def_thread *tlsa = list_entry(lsa, def_thread, elem);
+  def_thread *tlsb = list_entry(lsb, def_thread, elem);
 
   return tlsa->priority > tlsb->priority;
 }
