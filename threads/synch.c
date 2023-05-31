@@ -110,13 +110,15 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters)) { // sema를 사용할 대기자들이 있다면
-		// sema->waiters의 가장 앞에 있는 요소를 제거하고 그 요소를 반환 후, 이 반환 값을 struct thread 구조체 포인터로 반환.
+	if (!list_empty (&sema->waiters)) 
+	{ 
+		list_sort(&sema->waiters, &cmp_priority, NULL); //*️⃣*️⃣*️⃣*️⃣*️⃣*️⃣
 		def_thread *wait_t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
 		thread_unblock(wait_t); // 해당 스레드를 블록해제한 후, sema를 이용할 수 있도록하게 함.
 	}
 	sema->value++;
-	thread_yield();
+	test_max_priority();
+	// thread_yield();  *️⃣*️⃣*️⃣*️⃣
 	intr_set_level (old_level);
 }
 
@@ -178,6 +180,58 @@ lock_init (struct lock *lock) {
 	sema_init (&lock->semaphore, 1);
 }
 
+// 병목현상을 일으킨 lock에 내가 가진 priority를 donation해주는 함수 --> nested donation을 위해 필요함 //
+void
+donate_priority(){
+	def_thread *curr = thread_current();
+	
+	while(curr->wait_lock != NULL){
+		def_thread * holder = curr -> wait_lock -> holder;
+		holder ->priority = curr -> priority;
+		curr = holder;			//반복문이기 때문에 지금 보고있는 holder의 holder에 접근하기 위한 문장
+	}
+}
+
+
+// lock을 해지 했을 때, waiters에서 해당 쓰레드를 삭제하기 위한 함수//
+void remove_with_lock(struct lock *lock){
+	struct list_elem * candidate_elem;
+	def_thread * curr = thread_current();
+
+	for(candidate_elem = list_begin(&curr->donations); candidate_elem != list_end(&curr->donations); candidate_elem = list_next(candidate_elem)){
+		def_thread *candidate_thread= list_entry(candidate_elem, def_thread, donations_elem);
+		if(candidate_thread->wait_lock ==lock){
+			list_remove(&candidate_thread->donations_elem);
+		}
+	}
+}
+
+
+bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux){
+   def_thread *thread_a = list_entry(a, def_thread, donations_elem);
+   def_thread *thread_b = list_entry(b, def_thread, donations_elem);
+
+   return thread_a->priority > thread_b->priority;
+}
+
+
+
+//refresh
+void refresh_priority(void){
+	def_thread * curr = thread_current();
+
+	curr->priority = curr->init_priority;
+	if(!list_empty(&curr->donations)){
+		list_sort(&curr->donations,cmp_donate_priority,0);// *️⃣*️⃣*️⃣*️⃣
+
+		def_thread *max_thread = list_entry(list_front(&curr->donations),def_thread,donations_elem);  //donations도 내림차 순이라서 가장 앞에 있는 녀석이 max_priority이다.
+		if(max_thread->priority > curr->priority){
+			curr->priority = max_thread->priority;
+		}
+	}
+}
+
+
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
    thread.
@@ -192,9 +246,17 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+    def_thread * curr = thread_current();
+	if(lock->holder){
+		curr->wait_lock = lock;
+		list_insert_ordered(&lock->holder->donations, &curr->donations_elem, cmp_donate_priority, NULL);
+		donate_priority();
+	}
 	sema_down (&lock->semaphore);
+	curr-> wait_lock = NULL;
 	lock->holder = thread_current ();
 }
+
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -225,6 +287,11 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+
+	//----------*️⃣ add for donation *️⃣----------//
+	remove_with_lock(lock);
+	refresh_priority();
+	//-------------------------------------------//
 
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);

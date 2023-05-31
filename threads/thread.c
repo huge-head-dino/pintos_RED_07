@@ -209,7 +209,11 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 	def_thread *curr = thread_current();
-	thread_set_priority(curr->priority);
+	if (thread_get_priority() < t -> priority)
+	{
+		thread_yield();
+	}
+	// thread_set_priority(curr->priority); *️⃣*️⃣*️⃣
 	return tid;
 }
 
@@ -311,22 +315,43 @@ thread_yield (void) {
 	intr_set_level (old_level);
 }
 
+
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	//thread_current ()->priority = new_priority;
+	// thread_current ()->priority = new_priority;
 	def_thread *curr = thread_current();
-	curr->priority = new_priority;
-	enum intr_level old_level; 
-	old_level = intr_disable();
+	curr->init_priority = new_priority;
+	refresh_priority();
 
-	struct list_elem *ready_head = list_begin(&ready_list); // ready_list의 head의 주소값을 뽑아냄 -> 이미 ready_list는 우선순위가 부여되어서 정렬되어 있는 상태
-	def_thread *cmp_t = list_entry(ready_head, def_thread, elem);
-	if (curr->priority < cmp_t->priority) {
-		thread_yield(); //schedule()함수가 아닌 thread_yield()함수 실행.
-	}
-	intr_set_level(old_level);
+	if (list_empty(&ready_list)){
+ 		return;
+ 	}
+
+	test_max_priority();
+	// struct list_elem *ready_head = list_begin(&ready_list); // ready_list의 head의 주소값을 뽑아냄 -> 이미 ready_list는 우선순위가 부여되어서 정렬되어 있는 상태
+	// def_thread *cmp_t = list_entry(ready_head, def_thread, elem);
+	// if (curr->priority < cmp_t->priority) {
+	// 	thread_yield(); //schedule()함수가 아닌 thread_yield()함수 실행.
+	// }
+	
 }
+
+void test_max_priority(void)
+{
+	if (list_empty(&ready_list)){
+		return;
+	}
+	int run_priority = thread_current()->priority;
+	struct list_elem * e = list_begin(&ready_list);
+	struct thread * t = list_entry(e, struct thread, elem);
+	if(t->priority > run_priority)
+	{
+		thread_yield();
+	}
+}
+
 
 /* Returns the current thread's priority. */
 int
