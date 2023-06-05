@@ -164,6 +164,11 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
+	
+
+	char copied_file_name[128];
+
+	memcpy(copied_file_name, file_name, strlen(file_name)+1);
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -174,16 +179,19 @@ process_exec (void *f_name) {
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
 	/* We first kill the current context */
+	// 만약 현재 스레드의 context를 지우지 않으면, 새로운 실행 파일은 이전 실행파일의 context를 이어받게 되므로 예상못한 결과를 낳을 수 있음.
 	process_cleanup ();
 
+	printf("load실행 전");
 	/* And then load the binary */
 	success = load (file_name, &_if);
-
+	printf("load실행 후");
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
 
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -204,6 +212,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	while(1){}
 	return -1;
 }
 
@@ -329,6 +338,27 @@ load (const char *file_name, struct intr_frame *if_) {
 	bool success = false;
 	int i;
 
+	/*--------------------------------*/
+	int idx = 0;
+	char* arg_list[128];
+	char *token, *ptr;
+
+	arg_list[idx] = strtok_r(file_name, " ", &ptr);
+	while(token != NULL){
+		token = strtok_r(NULL, " ", &ptr);
+		idx++;
+		arg_list[idx] = token;
+		printf("token : %s\n", token);
+	}
+
+	/*
+	for(token = strtok_r(file_name, " ", &ptr); token != NULL; token = strtok_r(NULL, " ", &ptr)){
+		arg_list[idx] = token;
+		idx++;
+	}
+	*/
+	/*--------------------------------*/
+
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
@@ -416,13 +446,58 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-
+	printf("argument 실행 전\n")
+	argument_stack(arg_list, idx, if_);
+	printf("argument 실행 후\n")
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
 	return success;
+}
+
+
+void argument_stack(char** argv, int argc, struct intr_frame* if_){
+	char* rsp_address[128];
+	int i;
+
+	for(i = argc - 1; i>=0; i--){
+		int size = strlen(argv[i]);
+		printf("Test1");
+
+		if_->rsp = if_->rsp - (size+1);
+		// 스택 메모리 상단에 파일명 저장.
+		memcpy(if_->rsp, argv[i], size+1);
+		rsp_address[i] = if_->rsp;		
+	}
+
+	// rsp주소가 8의배수가 될 때까지 0을 채워넣어서 padding(64비트 운영체제이므로 8바이트 단위로 끊어야 offset이 정렬이 되기 때문에.)
+	while(if_->rsp % 8 != 0){
+		if_->rsp--;
+		*(uint16_t*) if_->rsp = 0;
+		printf("test2");
+	}
+
+	for(i = argc; i>=0; i--){
+		// 8바이트씩 rsp주소를 낮춰가면서 
+		if_->rsp = if_->rsp - 8;
+		//for문을 처음 시작하면 0을 채워넣어야하므로 rsp가 가리키는 memory에다가 0 setting.
+		if(i == argc){
+			memset(if_->rsp, 0, sizeof(char*));
+			printf("test3");
+		}else{ // i번째 해당하는 파일의 주소값을 rsp가 가리키는 memory주소에 copy
+			memcpy(if_->rsp, &rsp_address[i], sizeof(char*));
+			printf("test4");
+		}
+	}
+
+	// fake address 리턴해주기
+	if_->rsp = if_->rsp - 8;
+	memset(if_->rsp, 0, sizeof(void*));
+
+	if_->R.rdi = argc;
+	if_->R.rsi = if_->rsp + 8;
 }
 
 
