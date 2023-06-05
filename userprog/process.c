@@ -182,10 +182,8 @@ process_exec (void *f_name) {
 	// 만약 현재 스레드의 context를 지우지 않으면, 새로운 실행 파일은 이전 실행파일의 context를 이어받게 되므로 예상못한 결과를 낳을 수 있음.
 	process_cleanup ();
 
-	printf("load실행 전");
 	/* And then load the binary */
 	success = load (file_name, &_if);
-	printf("load실행 후");
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
@@ -212,7 +210,9 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while(1){}
+	for(int i = 0; i < 1<<30; i++){
+		continue;
+	}
 	return -1;
 }
 
@@ -348,7 +348,6 @@ load (const char *file_name, struct intr_frame *if_) {
 		token = strtok_r(NULL, " ", &ptr);
 		idx++;
 		arg_list[idx] = token;
-		printf("token : %s\n", token);
 	}
 
 	/*
@@ -446,9 +445,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-	printf("argument 실행 전\n")
 	argument_stack(arg_list, idx, if_);
-	printf("argument 실행 후\n")
 	success = true;
 
 done:
@@ -464,7 +461,6 @@ void argument_stack(char** argv, int argc, struct intr_frame* if_){
 
 	for(i = argc - 1; i>=0; i--){
 		int size = strlen(argv[i]);
-		printf("Test1");
 
 		if_->rsp = if_->rsp - (size+1);
 		// 스택 메모리 상단에 파일명 저장.
@@ -476,7 +472,6 @@ void argument_stack(char** argv, int argc, struct intr_frame* if_){
 	while(if_->rsp % 8 != 0){
 		if_->rsp--;
 		*(uint16_t*) if_->rsp = 0;
-		printf("test2");
 	}
 
 	for(i = argc; i>=0; i--){
@@ -485,10 +480,8 @@ void argument_stack(char** argv, int argc, struct intr_frame* if_){
 		//for문을 처음 시작하면 0을 채워넣어야하므로 rsp가 가리키는 memory에다가 0 setting.
 		if(i == argc){
 			memset(if_->rsp, 0, sizeof(char*));
-			printf("test3");
 		}else{ // i번째 해당하는 파일의 주소값을 rsp가 가리키는 memory주소에 copy
 			memcpy(if_->rsp, &rsp_address[i], sizeof(char*));
-			printf("test4");
 		}
 	}
 
