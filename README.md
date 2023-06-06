@@ -90,3 +90,8 @@ push 후 깃헙 페이지에서 PR 후 팀원들과 상의 후 merge하기
 ```
 git pull origin 내 브런치 명 ex) git pull origin uujeen
 ```
+
+# Run
+
+## build_launch.sh
+pintOS 초기 폴더에서 `sudo chmod 755 build_launch.sh` 로 권한을 설정한 뒤에 `$ ./build_launch.sh` 로 파일 실행
