@@ -281,10 +281,13 @@ thread_tid (void) {
 
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
+/**
+ * 현재 실행중인 스레드를 종료하는데 싱글코어이기 때문에 프로세스를 종료하는 함수와 동일하게 여길 수 있다.
+ * 따라서 syscall.c에서 호출해야하는 process_exit()가 아닌 thread_exit()에서 process_exit()를 호출하기 때문에 동등하게 사용할 수 있다.
+*/
 void
 thread_exit (void) {
 	ASSERT (!intr_context ());
-
 #ifdef USERPROG
 	process_exit ();
 #endif
