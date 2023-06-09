@@ -100,6 +100,8 @@ typedef struct thread {
 	struct list_elem donations_elem; 				// #️⃣윗줄 donations라는 list에 걸려있기 위한 elem이다.
 // ----------------------------------------------------------------------------------------//
 
+	struct file **fdt;
+	int next_fd;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
