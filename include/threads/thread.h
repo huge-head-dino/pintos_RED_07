@@ -104,6 +104,8 @@ typedef struct thread {
 	uint64_t *pml4; // process.c에서 사용될 것인데 아직 모르겠다
 // ----------------------------------------------------------------------------------------//
 
+	struct file **fdt;
+	int next_fd;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 

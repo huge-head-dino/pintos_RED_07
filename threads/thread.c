@@ -205,6 +205,16 @@ thread_create (const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
+	
+	// 파일 디스크립터 테이블을 위한 메모리 할당.
+	t->fdt = palloc_get_page(PAL_ZERO);
+	if(t->fdt == NULL){
+		return TID_ERROR;
+	}else{
+		t->next_fd = 2;
+		t->fdt[0] = 1; //STDIN 
+		t->fdt[1] = 2; //STDOUT
+	}
 
 	/* Add to run queue. */
 	thread_unblock (t);
@@ -658,9 +668,7 @@ void thread_wakeup(int64_t ticks) {
 		}
 	}
 }
-/**
- * 현재 실행중인 스레드의 우선순위와
-*/
+
 void test_max_priority(void) {
 	struct list_elem *e = list_begin(&ready_list);
 	def_thread *cmp_t = list_entry(e, def_thread, elem);
