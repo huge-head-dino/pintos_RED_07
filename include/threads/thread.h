@@ -99,7 +99,7 @@ typedef struct thread {
 	struct list donations;							// #️⃣자신에게 우선순위를 나눠준 thread의 list이다. 나눠준 녀석의 int priority를 찾아갈 수 있도록 알아야한다.
 	struct list_elem donations_elem; 				// #️⃣윗줄 donations라는 list에 걸려있기 위한 elem이다.
 // ----------------------------------------------------------------------------------------//
-
+	int exit_status;
 	struct file **fdt;
 	int next_fd;
 	/* Shared between thread.c and synch.c. */

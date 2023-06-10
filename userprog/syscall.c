@@ -28,7 +28,10 @@ int write (int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
-bool check_address(const char *addr);
+
+void check_address(void* addr);
+struct file* find_file_using_fd(int fd);
+int insert_file_to_fdt(struct file *file);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -64,32 +67,46 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	switch(f->R.rax){
 		case SYS_HALT:
 			halt();
+			break;
 		case SYS_EXIT:
 			exit(f->R.rdi);
+			break;
 		case SYS_FORK:
 			f->R.rax = fork(f->R.rdi);
+			break;
 		case SYS_EXEC:
 			f->R.rax = exec(f->R.rdi);
+			break;
 		case SYS_WAIT:
 			f->R.rax = wait(f->R.rdi);
+			break;
 		case SYS_CREATE:
 			f->R.rax = create(f->R.rdi, f->R.rsi);
+			break;
 		case SYS_REMOVE:
 			f->R.rax = remove(f->R.rdi);
+			break;
 		case SYS_OPEN:
 			f->R.rax = open(f->R.rdi);
+			break;
 		case SYS_FILESIZE:
 			f->R.rax = filesize(f->R.rdi);
+			break;
 		case SYS_READ:
 			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+			break;
 		case SYS_WRITE:
 			f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+			break;
 		case SYS_SEEK:
 			seek(f->R.rdi, f->R.rsi);
+			break;
 		case SYS_TELL:
 			f->R.rax = tell(f->R.rdi);
+			break;
 		case SYS_CLOSE:
 			close(f->R.rdi);
+			break;
 	}
 }
 
@@ -99,166 +116,170 @@ void halt (void){
 
 void exit (int status){
 	def_thread *curr = thread_current();
+	curr->exit_status = status;
 	printf("%s: exit(%d)\n", curr->name, status);
 	thread_exit();
 }
+
 int exec (const char *cmd_line){}
 int wait (tid_t pid){}
 
 bool create (const char *file, unsigned initial_size){
-	if(check_address(file)){
-		filesys_create(file, initial_size);		
-		return true;
-	}else{
-		return false;
-	}
+	lock_acquire(&filesys_lock);
+	check_address(file);
+	bool boolean = filesys_create(file, initial_size);
+	lock_release(&filesys_lock);
+	return boolean;
 }
 
 bool remove (const char *file){
-	if(check_address(file)){
-		filesys_remove(file);
-		return true;
-	}else{
-		return false;
-	}
+	check_address(file);
+	return filesys_remove(file);
 }
+
 
 int open (const char *file){
 	check_address(file);
+
+	lock_acquire(&filesys_lock);
 	struct file *f = filesys_open(file);
-	if(f==NULL){
+
+	if(f == NULL){
+		lock_release(&filesys_lock);
 		return -1;
 	}
-	// 파일 객체에 대한 fd 생성.
-	int fd;
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
 
-	fd = curr->next_fd;
-	while(curr->fdt[fd]!=NULL){
-		fd++;
-	}
-
-	curr->next_fd = fd;
-	fdt[fd] = f;
+	int fd = insert_file_to_fdt(f);
 
 	if(fd == -1){
 		file_close(f);
-	}else{
-		return fd;
 	}
+	lock_release(&filesys_lock);
+	return fd;
 }
 
+// 수정
 int filesize (int fd){
-	if(fd < 0 || fd > 63){
-		return 0;
-	}
+	struct file *f = find_file_using_fd(fd);
 
-	// 프로세스의 fdt를 검색해서 파일 객체를 찾음.
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
-	struct file *file = fdt[fd];
-
-	if(file == NULL){
+	if(f == NULL){
 		return -1;
-	}else{
-		file_length(file);
 	}
+	return file_length(f);
 }
 
 int read (int fd, void *buffer, unsigned size){
+	check_address(buffer);
+
 	uint8_t key;
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
-	struct file *file = fdt[fd];	
+	int read_size;	
+	struct file* f = find_file_using_fd(fd);
 
 	// fd가 0일 때(파일 끝에서 시도하는 경우), input_getc()로 키보드로부터 바이트를 읽는다.
+	lock_acquire(&filesys_lock);
 	if(fd == 0){
 		key = input_getc();
+		lock_release(&filesys_lock);
 		return key;
-	}
-	// 해당 파일을 읽을 수 있다면 file_read()로 바이트를 읽는다. 읽을 수 없다면 -1 반환
-	else {
-		if(!is_user_vaddr(&buffer) || buffer == NULL) {
-			return -1;
-		}
-		else {
-			return file_read(file, buffer, size);
-		}
-	}
+	}else if(fd == 1) {// 해당 파일을 읽을 수 있다면 file_read()로 바이트를 읽는다. 읽을 수 없다면 -1 반환
+		lock_release(&filesys_lock);
+		return -1;
+	}else {
+		read_size = file_read(f, buffer, size);
+		lock_release(&filesys_lock);
+	}	
+	return read_size;
 }
 
 int write (int fd, const void *buffer, unsigned size) {
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
-	struct file *file = fdt[fd];
-	off_t write_size;
+	check_address(buffer);
+	int write_size;
+	struct file *f = find_file_using_fd(fd);
+
+	lock_acquire(&filesys_lock);
 	if(fd == 1) {
 		putbuf(buffer, size);
-		return size;
+		write_size = size;
+		lock_release(&filesys_lock);
+	}else if(fd == 0) {
+		lock_release(&filesys_lock);
+		return -1;
+	}else {
+		write_size = file_write(f, buffer, size);
+		lock_release(&filesys_lock);
 	}
-	else {		
-		if(!is_user_vaddr(&buffer) || buffer == NULL) {
-			return -1;
-		}
-		else {
-			write_size = file_write(file, buffer, size);
-			return write_size;
-		}
-	}
+	return write_size;
 }
+
 
 // 파일을 특정위치로 이동시키는 함수.
 void seek (int fd, unsigned position){
-	if(fd < 3){
+	struct file* f = find_file_using_fd(fd);
+
+	if(f == NULL){
 		return ;
 	}
 
-	// 프로세스의 fdt를 검색해서 파일 객체를 찾음.
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
-	struct file *file = fdt[fd];
-
-	if(file == NULL){
-		return ;
-	}else{
-		file_seek(file,position);
-	}
+	file_seek(f, position);
 }
 
 // 파일의 현재위치를 반환하는 함수.
 unsigned tell (int fd){
-	if(fd < 3){
-		return 0;
-	}
+	struct file* f = find_file_using_fd(fd);
+	check_address(f);
 
-	// 프로세스의 fdt를 검색해서 파일 객체를 찾음.
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
-	struct file *file = fdt[fd];
-
-	if(file == NULL){
-		return 0;
-	}else{
-		return file_tell(file);
+	if(f == NULL){
+		return ;
 	}
+	return file_tell(f);
 }
 
 void close (int fd){
-	def_thread *curr = thread_current();
-	struct file **fdt = curr->fdt;
-	struct file *file = fdt[fd];
+	struct file* f = find_file_using_fd(fd);
+	if(f == NULL){
+		return ;
+	}
 
-	file_close(file);
+	file_close(f);
 }
 
 tid_t fork (const char *thread_name){}
 
-bool check_address(const char *addr){
-	def_thread *curr = thread_current();
+// 주소가 유효한지 체크하는 함수.
+void check_address(void* addr){
 	if(!is_user_vaddr(addr) || addr == NULL){
 		exit(-1);
-		return false;
 	}
-	return true;
+}
+
+// fd를 이용해서 fdt에서 파일을 찾는 함수.
+struct file* find_file_using_fd(int fd){
+	if(fd < 0 || fd >= 64){
+		return NULL;
+	}
+	def_thread *curr = thread_current();
+	struct file **fdt = curr->fdt;
+	struct file *file = fdt[fd];
+
+	return file;
+}
+
+// fdt에 파일을 삽입하는 함수.
+int insert_file_to_fdt(struct file *file){
+	def_thread *curr = thread_current();
+	struct file **fdt = curr->fdt;
+	int fd = curr->next_fd;
+
+	while(curr->fdt[fd] != NULL && fd < 64){
+		fd++;
+	}
+
+	if(fd >= 64){
+		return -1;
+	}
+
+	curr->next_fd = fd;
+	fdt[fd] = file;
+
+	return fd;
 }
