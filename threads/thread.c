@@ -211,9 +211,7 @@ thread_create (const char *name, int priority,
 	if(t->fdt == NULL){
 		return TID_ERROR;
 	}else{
-		t->next_fd = 2;
-		t->fdt[0] = 1; //STDIN 
-		t->fdt[1] = 2; //STDOUT
+		t->next_fd = 3;
 	}
 
 	/* Add to run queue. */
