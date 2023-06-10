@@ -50,9 +50,12 @@ process_create_initd (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 	// file_name에 연산자외 피연산자 일부도 포함되기 때문에 strtok로 연산자만 가져오게 한다.
+	
+	/*-------------------------*/
 	char *ptr;
-
 	file_name = strtok_r(file_name, " ", &ptr);
+	/*-------------------------*/
+	
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
@@ -167,11 +170,6 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
-	
-
-	char copied_file_name[128];
-
-	memcpy(copied_file_name, file_name, strlen(file_name)+1);
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -213,9 +211,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	for(int i = 0; i < 1<<25; i++){
-		continue;
-	}
+	for(int i = 0; i < 1<<25; i++);
 	return -1;
 }
 

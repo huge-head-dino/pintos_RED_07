@@ -210,9 +210,8 @@ thread_create (const char *name, int priority,
 	t->fdt = palloc_get_page(PAL_ZERO);
 	if(t->fdt == NULL){
 		return TID_ERROR;
-	}else{
-		t->next_fd = 3;
 	}
+	t->next_fd = 3;
 
 	/* Add to run queue. */
 	thread_unblock (t);
@@ -428,6 +427,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->magic = THREAD_MAGIC;
 
 	// --- add for donation 추가부분 ----//
+	t->exit_status = 0;
 	t->init_priority = priority;
 	t->wait_lock = NULL;
 	list_init(&t->donations);
