@@ -28,8 +28,7 @@ int write (int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
-
-void check_address(uint64_t addr);
+bool check_address(const char *addr);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -55,47 +54,43 @@ syscall_init (void) {
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 	
-	//lock_init(filesys_lock);
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
-	check_address(f->R.rax);
 	switch(f->R.rax){
 		case SYS_HALT:
 			halt();
 		case SYS_EXIT:
 			exit(f->R.rdi);
 		case SYS_FORK:
-			fork(f->R.rdi);
+			f->R.rax = fork(f->R.rdi);
 		case SYS_EXEC:
-			exec(f->R.rdi);
+			f->R.rax = exec(f->R.rdi);
 		case SYS_WAIT:
-			wait(f->R.rdi);
+			f->R.rax = wait(f->R.rdi);
 		case SYS_CREATE:
-			create(f->R.rdi, f->R.rsi);
+			f->R.rax = create(f->R.rdi, f->R.rsi);
 		case SYS_REMOVE:
-			remove(f->R.rdi);
+			f->R.rax = remove(f->R.rdi);
 		case SYS_OPEN:
-			open(f->R.rdi);
+			f->R.rax = open(f->R.rdi);
 		case SYS_FILESIZE:
-			filesize(f->R.rdi);
+			f->R.rax = filesize(f->R.rdi);
 		case SYS_READ:
-			read(f->R.rdi, f->R.rsi, f->R.rdx);
+			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		case SYS_WRITE:
-			write(f->R.rdi, f->R.rsi, f->R.rdx);
+			f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		case SYS_SEEK:
 			seek(f->R.rdi, f->R.rsi);
 		case SYS_TELL:
-			tell(f->R.rdi);
+			f->R.rax = tell(f->R.rdi);
 		case SYS_CLOSE:
 			close(f->R.rdi);
 	}
-
-	// printf ("system call!\n");
-	// thread_exit ();
 }
 
 void halt (void){
@@ -104,14 +99,15 @@ void halt (void){
 
 void exit (int status){
 	def_thread *curr = thread_current();
-	printf("%s : exit(%d)\n", curr->name, status);
+	printf("%s: exit(%d)\n", curr->name, status);
 	thread_exit();
 }
 int exec (const char *cmd_line){}
 int wait (tid_t pid){}
 
 bool create (const char *file, unsigned initial_size){
-	if(filesys_create(file, initial_size)){
+	if(check_address(file)){
+		filesys_create(file, initial_size);		
 		return true;
 	}else{
 		return false;
@@ -119,7 +115,8 @@ bool create (const char *file, unsigned initial_size){
 }
 
 bool remove (const char *file){
-	if(filesys_remove(file)){
+	if(check_address(file)){
+		filesys_remove(file);
 		return true;
 	}else{
 		return false;
@@ -127,11 +124,11 @@ bool remove (const char *file){
 }
 
 int open (const char *file){
+	check_address(file);
 	struct file *f = filesys_open(file);
 	if(f==NULL){
 		return -1;
 	}
-
 	// 파일 객체에 대한 fd 생성.
 	int fd;
 	def_thread *curr = thread_current();
@@ -182,11 +179,11 @@ int read (int fd, void *buffer, unsigned size){
 	}
 	// 해당 파일을 읽을 수 있다면 file_read()로 바이트를 읽는다. 읽을 수 없다면 -1 반환
 	else {
-		if(!is_user_vaddr(&buffer)) {
+		if(!is_user_vaddr(&buffer) || buffer == NULL) {
 			return -1;
 		}
 		else {
-			return (int)file_read(file, buffer, size);
+			return file_read(file, buffer, size);
 		}
 	}
 }
@@ -196,18 +193,17 @@ int write (int fd, const void *buffer, unsigned size) {
 	struct file **fdt = curr->fdt;
 	struct file *file = fdt[fd];
 	off_t write_size;
-
 	if(fd == 1) {
 		putbuf(buffer, size);
 		return size;
 	}
 	else {		
-		if(!is_user_vaddr(&buffer)) {
+		if(!is_user_vaddr(&buffer) || buffer == NULL) {
 			return -1;
 		}
 		else {
 			write_size = file_write(file, buffer, size);
-			return (int)write_size;
+			return write_size;
 		}
 	}
 }
@@ -258,8 +254,11 @@ void close (int fd){
 
 tid_t fork (const char *thread_name){}
 
-void check_address(uint64_t addr){
-	if(!is_user_vaddr(addr)){
+bool check_address(const char *addr){
+	def_thread *curr = thread_current();
+	if(!is_user_vaddr(addr) || addr == NULL){
 		exit(-1);
+		return false;
 	}
+	return true;
 }
