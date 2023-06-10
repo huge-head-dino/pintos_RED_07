@@ -187,7 +187,7 @@ process_exec (void *f_name) {
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
-		return -1;
+		return -1;   //2️⃣2️⃣2️⃣2️⃣ 이거 왜 thread_exit()이 아니지??2️⃣2️⃣2️⃣2️⃣
 
 	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 	/* Start switched process. */
@@ -359,13 +359,13 @@ load (const char *file_name, struct intr_frame *if_) {
 	/*--------------------------------*/
 
 	/* Allocate and activate page directory. */
-	t->pml4 = pml4_create ();
+	t->pml4 = pml4_create (); 				  // 1.페이지 디렉토리 생성
 	if (t->pml4 == NULL)
 		goto done;
-	process_activate (thread_current ());
+	process_activate (thread_current ());     // 2. 페이지 테이블 활성화
 
 	/* Open executable file. */
-	file = filesys_open (file_name);
+	file = filesys_open (file_name);		  // 3. 프로그램 파일 open
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;

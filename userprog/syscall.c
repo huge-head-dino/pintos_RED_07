@@ -7,6 +7,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include <filesys/filesys.h> // 1️⃣ 한양대 ppt p.75
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -54,6 +55,13 @@ syscall_init (void) {
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
+void check_address(void *addr){
+	
+
+	
+}
+
+
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
@@ -69,54 +77,51 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	
 	case SYS_FORK:
-		/* code */
+		fork(f->R.rdi);
 		break;
 	
 	case SYS_EXEC:
-		/* code */
+		exec(f->R.rdi);
 		break;
 	
 	case SYS_WAIT:
-		/* code */
+		wait(f->R.rdi);
 		break;
 	
 	case SYS_CREATE:
-		create();
+		create(f->R.rdi,f->R.rsi);
 		break;
 	
 	case SYS_REMOVE:
-		remove();
+		remove(f->R.rdi);
 		break;
 	
 	case SYS_OPEN:
-		open();
+		open(f->R.rdi);
 		break;
 	
 	case SYS_FILESIZE:
-		/* code */
+		filesize(f->R.rdi);
 		break;
 	
 	case SYS_READ:
-		/* code */
+		read(f->R.rdi,f->R.rsi,f->R.rdx);
 		break;
 	
 	case SYS_WRITE:
-		/* code */
+		write(f->R.rdi,f->R.rsi,f->R.rdx);
 		break;
 	
 	case SYS_SEEK:
-		/* code */
+		seek(f->R.rdi,f->R.rsi);
 		break;
 	
 	case SYS_TELL:
-		/* code */
+		tell(f->R.rdi);
 		break;
 	
 	case SYS_CLOSE:
-		/* code */
-		break;
-	
-	default:
+		close(f->R.rdi);
 		break;
 	}
 	printf ("system call!\n");
@@ -129,7 +134,6 @@ void halt(void) {
 
 void exit(int status) {
 	thread_exit();
-	// 커널에 상태를 리턴하면서 종료합니다. 미완
 	printf("Name of process: exit(%d)", status);
 }
 
@@ -145,12 +149,20 @@ int wait (tid_t pid) {
 }
 
 bool create (const char *file, unsigned initial_size) {
-	if(filesys_create(file, initial_size)) return 1;
-	else return 0;
+	if(filesys_create(file, initial_size)){
+		return true;
+	} 
+	else {
+		return false;
+	}
 }
 bool remove (const char *file) {
-	if(filesys_remove(file)) return 1;
-	else return 0;
+	if(filesys_remove(file)){
+		return true;
+	} 
+	else {
+		return false;
+	}
 }
 
 int open (const char *file) {
